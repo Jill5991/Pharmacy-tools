@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Module B - 處方檢核輔助工具</title>
+<style>
+:root {
+  --red: #dc2626; --red-bg: #fef2f2; --red-border: #fca5a5;
+  --yellow: #d97706; --yellow-bg: #fffbeb; --yellow-border: #fcd34d;
+  --blue: #2563eb; --blue-bg: #eff6ff; --blue-border: #93c5fd;
+  --orange: #ea580c; --orange-bg: #fff7ed; --orange-border: #fdba74;
+  --green: #16a34a; --green-bg: #f0fdf4; --green-border: #86efac;
+  --purple: #7c3aed; --purple-bg: #f5f3ff; --purple-border: #c4b5fd;
+  --pink: #db2777; --pink-bg: #fdf2f8; --pink-border: #f9a8d4;
+  --gray: #6b7280; --gray-bg: #f9fafb; --gray-border: #d1d5db;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: #f3f4f6; color: #1f2937; font-size: 14px; }
+.container { max-width: 900px; margin: 0 auto; padding: 8px; }
+header { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+header h1 { font-size: 20px; font-weight: 700; }
+header p { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+
+/* Sections */
+.section { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+
+/* Drug search */
+.search-box { position: relative; }
+.search-box input { width: 100%; padding: 10px 12px; border: 2px solid var(--gray-border); border-radius: 8px; font-size: 15px; outline: none; }
+.search-box input:focus { border-color: #3b82f6; }
+.dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--gray-border); border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.dropdown.show { display: block; }
+.dropdown-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.dropdown-item:hover, .dropdown-item.active { background: #eff6ff; }
+.dropdown-item .code { color: var(--blue); font-weight: 600; font-size: 12px; }
+.dropdown-item .name { display: block; }
+.dropdown-item .generic { color: var(--gray); font-size: 12px; }
+
+/* Rx list */
+.rx-list { margin-top: 12px; }
+.rx-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; background: var(--gray-bg); border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--gray-border); }
+.rx-item .rx-name { flex: 1 1 100%; font-weight: 600; font-size: 13px; }
+.rx-item .rx-name small { font-weight: 400; color: var(--gray); }
+.rx-item .rx-detail { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
+.rx-item input[type="text"], .rx-item select { padding: 6px 8px; border: 1px solid var(--gray-border); border-radius: 6px; font-size: 13px; width: 70px; }
+.rx-item select { width: 80px; }
+.rx-item .rx-remove { background: none; border: none; color: var(--red); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; }
+.rx-item .rx-remove:hover { background: var(--red-bg); }
+.rx-item .rx-links { flex: 1 1 100%; display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.rx-item .rx-links a { font-size: 11px; padding: 2px 6px; background: var(--blue-bg); color: var(--blue); border-radius: 4px; text-decoration: none; white-space: nowrap; }
+
+/* Patient info */
+.patient-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.patient-grid label { font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.patient-grid input, .patient-grid select { padding: 6px 8px; border: 1px solid var(--gray-border); border-radius: 6px; font-size: 13px; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.checkbox-group label { font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; border: 1px solid var(--gray-border); border-radius: 6px; user-select: none; }
+.checkbox-group label.checked { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+.checkbox-group input { display: none; }
+
+/* Check button */
+.btn-check { width: 100%; padding: 14px; background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+.btn-check:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-check:active:not(:disabled) { transform: scale(0.98); }
+
+/* Summary bar */
+.summary-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: #1e293b; color: #fff; border-radius: 10px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+.summary-bar .badge { padding: 4px 10px; border-radius: 6px; }
+.badge-red { background: var(--red); }
+.badge-yellow { background: var(--yellow); }
+.badge-blue { background: var(--blue); }
+.badge-orange { background: var(--orange); }
+.badge-green { background: var(--green); }
+
+/* Result cards */
+.card { border-radius: 10px; padding: 14px; margin-bottom: 10px; border-left: 4px solid; }
+.card-high { background: var(--red-bg); border-color: var(--red); }
+.card-moderate { background: var(--yellow-bg); border-color: var(--yellow); }
+.card-fda { background: var(--blue-bg); border-color: var(--blue); }
+.card-dup { background: var(--orange-bg); border-color: var(--orange); }
+.card-beers { background: var(--purple-bg); border-color: var(--purple); }
+.card-pregnancy { background: var(--pink-bg); border-color: var(--pink); }
+.card-renal { background: var(--orange-bg); border-color: var(--orange); }
+.card-pedi { background: var(--green-bg); border-color: var(--green); }
+.card-pedi-warn { background: var(--yellow-bg); border-color: var(--yellow); }
+.card-pedi-danger { background: var(--red-bg); border-color: var(--red); }
+.card-triple { background: var(--red-bg); border-color: var(--red); border-width: 3px; box-shadow: 0 0 0 2px var(--red); }
+.card-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.card-body { font-size: 13px; line-height: 1.6; }
+.card-body .action { margin-top: 6px; padding: 6px 10px; background: rgba(0,0,0,0.05); border-radius: 6px; }
+
+/* Collapsible */
+.collapsible { cursor: pointer; user-select: none; }
+.collapsible::after { content: ' ▸'; font-size: 12px; }
+.collapsible.open::after { content: ' ▾'; }
+.collapsible-content { display: none; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.7); border-radius: 6px; font-size: 12px; line-height: 1.6; max-height: 200px; overflow-y: auto; }
+.collapsible-content.show { display: block; }
+
+/* Status bar */
+.status-bar { text-align: center; padding: 10px; font-size: 12px; color: var(--gray); }
+.status-bar .online { color: var(--green); }
+.status-bar .offline { color: var(--orange); }
+
+/* Loading */
+.loading { text-align: center; padding: 20px; color: var(--gray); }
+.spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid var(--gray-border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Hide results initially */
+#results { display: none; }
+
+@media (max-width: 480px) {
+  .container { padding: 4px; }
+  .section { padding: 12px; }
+  header { padding: 12px; }
+  header h1 { font-size: 17px; }
+  .rx-item input[type="text"] { width: 55px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Module B - 處方檢核輔助工具</h1>
+    <p>ATC 規則引擎 + openFDA 仿單即時查詢 + 外部連結</p>
+  </header>
+
+  <!-- Drug Search & Rx List -->
+  <div class="section">
+    <div class="section-title">處方輸入</div>
+    <div class="search-box">
+      <input type="text" id="drugSearch" placeholder="搜尋藥品（健保碼 / 中英文名 / 學名）" autocomplete="off">
+      <div class="dropdown" id="drugDropdown"></div>
+    </div>
+    <div class="rx-list" id="rxList"></div>
+  </div>
+
+  <!-- Patient Info -->
+  <div class="section">
+    <div class="section-title">病人資訊</div>
+    <div class="patient-grid">
+      <label>年齡 <div style="display:flex;gap:4px"><input type="number" id="patAge" min="0" step="1" placeholder="0"><select id="patAgeUnit"><option value="year">歲</option><option value="month">月</option></select></div></label>
+      <label>體重 (kg) <input type="number" id="patWeight" min="0" step="0.1" placeholder="kg"></label>
+      <label>性別 <select id="patSex"><option value="">--</option><option value="M">男</option><option value="F">女</option></select></label>
+      <label>eGFR <input type="number" id="patEgfr" min="0" placeholder="mL/min"></label>
+    </div>
+    <div class="checkbox-group" id="flags">
+      <label><input type="checkbox" value="elderly">老年 ≥65</label>
+      <label><input type="checkbox" value="pregnant">孕婦</label>
+      <label><input type="checkbox" value="child">兒童</label>
+      <label><input type="checkbox" value="renal">腎功能不全</label>
+      <label><input type="checkbox" value="hepatic">肝功能不全</label>
+      <label><input type="checkbox" value="glaucoma">青光眼</label>
+      <label><input type="checkbox" value="bph">攝護腺肥大</label>
+    </div>
+  </div>
+
+  <!-- Check Button -->
+  <button class="btn-check" id="btnCheck" disabled>開始檢核</button>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="summary-bar" id="summaryBar"></div>
+    <div id="resultCards"></div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar">載入中...</div>
+</div>
+
+<script src="nhi-drugs.js"></script>
+<script src="pediatric-dosing.js"></script>
+<script src="config.js"></script>
+<script>
+// ──────────── DATA ────────────
+let NHI_DRUGS = [];
+let PEDIATRIC_DOSING = [];
+let CONFIG = { openfdaApiKey: '' };
+
+const RX_LIST = []; // { drug, dose, freq, days }
+
+// ──────────── ATC INTERACTION RULES (25) ────────────
+const ATC_RULES = [
+  { id:'INT-001', a:/^B01AA/, aDesc:'Warfarin', b:/^M01A/, bDesc:'NSAIDs', severity:'high', risk:'GI/顱內出血風險極高', action:'避免併用，必要時加 PPI + 監控 INR' },
+  { id:'INT-002', a:/^C09[ABCD]/, aDesc:'ACEi/ARB', b:/^M01A/, bDesc:'NSAIDs', severity:'high', risk:'降壓效果減弱 + 急性腎損傷', action:'避免長期併用' },
+  { id:'INT-005', a:/^N06A[BX]/, aDesc:'SSRI/SNRI', b:/^R05DA09/, bDesc:'Dextromethorphan', severity:'high', risk:'血清素症候群', action:'禁忌併用' },
+  { id:'INT-006', a:/^C01BD01/, aDesc:'Amiodarone', b:/^B01AA/, bDesc:'Warfarin', severity:'high', risk:'INR 顯著上升，出血風險', action:'Warfarin 減量 30-50%，密切監控 INR' },
+  { id:'INT-007', a:/^C10AA/, aDesc:'Statins', b:/^J02A[BC]/, bDesc:'Azole 抗黴菌藥', severity:'high', risk:'橫紋肌溶解', action:'Simvastatin/Lovastatin + Itraconazole/Ketoconazole 禁忌' },
+  { id:'INT-013', a:/^A10BA01/, aDesc:'Metformin', b:/^V08A/, bDesc:'含碘顯影劑', severity:'high', risk:'乳酸酸中毒', action:'檢查前 48 小時停用 Metformin' },
+  { id:'INT-019', a:/^C01AA05/, aDesc:'Digoxin', b:/^C08DA01/, bDesc:'Verapamil', severity:'high', risk:'Digoxin 血中濃度上升，毒性風險', action:'Digoxin 減量 50%' },
+  { id:'INT-020', a:/^C01AA05/, aDesc:'Digoxin', b:/^C01BD01/, bDesc:'Amiodarone', severity:'high', risk:'Digoxin 血中濃度上升 70-100%', action:'Digoxin 減量 50%' },
+  { id:'INT-021', a:/^N02A/, aDesc:'Opioids', b:/^N05(BA|CD|CF)/, bDesc:'BZD/Z-drugs', severity:'high', risk:'呼吸抑制致死風險', action:'FDA 黑框警語，盡量避免併用' },
+  { id:'INT-022', a:/^G04CA/, aDesc:'Alpha-blocker (泌尿)', b:/^G04BE/, bDesc:'PDE5 抑制劑', severity:'high', risk:'嚴重低血壓', action:'Tamsulosin 風險較低但仍需注意' },
+  { id:'INT-025', a:/^J01FA/, aDesc:'Macrolides', b:/^C10AA/, bDesc:'Statins', severity:'high', risk:'橫紋肌溶解', action:'Clarithromycin + Simvastatin 禁忌，Azithromycin 較安全' },
+  { id:'INT-003', a:/^C03/, aDesc:'利尿劑', b:/^M01A/, bDesc:'NSAIDs', severity:'moderate', risk:'利尿及降壓效果減弱', action:'避免長期併用' },
+  { id:'INT-004', a:/^B01AA/, aDesc:'Warfarin', b:/^N02BE01/, bDesc:'Acetaminophen', severity:'moderate', risk:'長期高劑量可能升高 INR', action:'每日 < 2g 風險低，仍為止痛首選' },
+  { id:'INT-008', a:/^A02BC/, aDesc:'PPI', b:/^B01AC04/, bDesc:'Clopidogrel', severity:'moderate', risk:'抗血小板效果降低', action:'優先使用 Pantoprazole' },
+  { id:'INT-009', a:/^J01MA/, aDesc:'Fluoroquinolones', b:/^A02A/, bDesc:'制酸劑', severity:'moderate', risk:'FQ 吸收顯著降低', action:'間隔 2 小時前或 6 小時後服用' },
+  { id:'INT-010', a:/^J01AA/, aDesc:'Tetracyclines', b:/^(A02A|A12AA|B03AA)/, bDesc:'制酸劑/鈣/鐵', severity:'moderate', risk:'Tetracycline 吸收降低', action:'間隔 2 小時服用' },
+  { id:'INT-011', a:/^H03AA01/, aDesc:'Levothyroxine', b:/^(A02A|A12AA|B03AA)/, bDesc:'制酸劑/鈣/鐵', severity:'moderate', risk:'Levothyroxine 吸收降低', action:'間隔 4 小時服用' },
+  { id:'INT-012', a:/^N05(BA|CD)/, aDesc:'BZD', b:/^R06A[AB]/, bDesc:'第一代抗組織胺', severity:'moderate', risk:'CNS 抑制加乘', action:'老年人尤其危險' },
+  { id:'INT-014', a:/^C07A/, aDesc:'Beta-blocker', b:/^R03(AC|CC)/, bDesc:'Beta-agonist', severity:'moderate', risk:'藥理拮抗', action:'氣喘患者避免非選擇性 Beta-blocker' },
+  { id:'INT-015', a:/^N06AB/, aDesc:'SSRI', b:/^(M01A|B01AC06)/, bDesc:'NSAIDs/Aspirin', severity:'moderate', risk:'GI 出血風險增加', action:'考慮加 PPI 保護' },
+  { id:'INT-016', a:/^A10BB/, aDesc:'Sulfonylureas', b:/^J01MA/, bDesc:'Fluoroquinolones', severity:'moderate', risk:'血糖波動', action:'加強血糖監測' },
+  { id:'INT-017', a:/^B01AA/, aDesc:'Warfarin', b:/^J01(CF|CA|CR|FA|FF)/, bDesc:'部分抗生素', severity:'moderate', risk:'INR 上升', action:'療程中及結束後 1 週監測 INR' },
+  { id:'INT-018', a:/^N05A/, aDesc:'抗精神病藥', b:/^N06A[BX]/, bDesc:'SSRI/SNRI', severity:'moderate', risk:'QT 延長 + CYP2D6 抑制', action:'Sertraline 較安全' },
+  { id:'INT-023', a:/^C03DA01/, aDesc:'Spironolactone', b:/^C09[AC]/, bDesc:'ACEi/ARB', severity:'moderate', risk:'高血鉀', action:'監測血鉀 K+' },
+  { id:'INT-024', a:/^A10BH/, aDesc:'DPP4i', b:/^A10BB/, bDesc:'Sulfonylureas', severity:'moderate', risk:'低血糖風險增加', action:'考慮降低 SU 劑量' },
+];
+
+// ──────────── THERAPEUTIC DUPLICATION EXCEPTIONS ────────────
+const DUP_EXCEPTIONS = [
+  ['A10BA','A10BB'],['A10BA','A10BH'],['A10BA','A10BK'],['A10BA','A10BJ'],
+  ['C03CA','C03DA'],['C09AA','C08CA'],['C09CA','C08CA'],['C09AA','C03'],['C09CA','C03'],
+  ['R03AK','R03BB'],['R03AC','R03BB']
+];
+
+// ──────────── BEERS CRITERIA ────────────
+const BEERS = [
+  { atc:/^R06A[AB]/, desc:'第一代抗組織胺', risk:'跌倒、認知惡化、尿滯留' },
+  { atc:/^N05BA01/, desc:'Diazepam', risk:'長效 BZD，跌倒風險' },
+  { atc:/^N05CD/, desc:'長效 BZD 助眠藥', risk:'跌倒、日間嗜睡' },
+  { atc:/^M01A/, desc:'NSAIDs（長期使用）', risk:'GI 出血、腎損傷、心血管風險' },
+  { atc:/^(A03B|N04A)/, desc:'Anticholinergics', risk:'認知功能下降、便秘、尿滯留' },
+  { atc:/^N02AB02/, desc:'Meperidine', risk:'神經毒性代謝物累積' },
+  { atc:/^A10BB01/, desc:'Glibenclamide', risk:'長效 SU，低血糖風險高' },
+  { atc:/^G04BD/, desc:'Oxybutynin 口服', risk:'Anticholinergic 認知風險' },
+];
+
+// ──────────── PREGNANCY CONTRAINDICATIONS ────────────
+const PREGNANCY_CI = [
+  { atc:/^M01A/, desc:'NSAIDs', period:'第三孕期', reason:'胎兒動脈導管早閉' },
+  { atc:/^C09/, desc:'ACEi/ARB', period:'全孕期', reason:'腎發育異常' },
+  { atc:/^C10AA/, desc:'Statins', period:'全孕期', reason:'X 級致畸' },
+  { atc:/^B01AA/, desc:'Warfarin', period:'第一孕期', reason:'Warfarin 胚胎病' },
+  { atc:/^L04AX03/, desc:'Methotrexate', period:'全孕期', reason:'致畸致死' },
+  { atc:/^N03AF01/, desc:'Carbamazepine', period:'第一孕期', reason:'神經管缺陷' },
+  { atc:/^M09AB01/, desc:'Isotretinoin', period:'全孕期', reason:'嚴重致畸' },
+];
+
+// ──────────── RENAL ALERTS ────────────
+const RENAL_ALERTS = [
+  { atc:/^A10BA01/, desc:'Metformin', action:'eGFR<30 禁用，30-45 減量' },
+  { atc:/^M01A/, desc:'NSAIDs', action:'腎功能不全時避免使用' },
+  { atc:/^A02A(A|D)/, desc:'含 Mg 制酸劑', action:'高鎂血症風險' },
+  { atc:/^N03AX12/, desc:'Gabapentin', action:'依 eGFR 調整劑量' },
+  { atc:/^N03AX16/, desc:'Pregabalin', action:'依 eGFR 調整劑量' },
+];
+
+// ──────────── FREQ MAP ────────────
+const FREQ_MAP = { qd:1, bid:2, tid:3, qid:4, 'q4h':6, 'q6h':4, 'q8h':3, 'q4-6h':5, 'q6-8h':3.5, 'qd-bid':1.5, 'bid-tid':2.5, hs:1, prn:1, stat:1 };
+
+// Data is loaded via <script src> tags at the bottom of the page
+
+// ──────────── DRUG SEARCH ────────────
+const searchInput = document.getElementById('drugSearch');
+const dropdown = document.getElementById('drugDropdown');
+let searchTimeout;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(doSearch, 200);
+});
+searchInput.addEventListener('focus', () => { if (dropdown.children.length) dropdown.classList.add('show'); });
+document.addEventListener('click', e => { if (!e.target.closest('.search-box')) dropdown.classList.remove('show'); });
+
+function doSearch() {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) { dropdown.classList.remove('show'); return; }
+  const results = NHI_DRUGS.filter(d =>
+    d.code.toLowerCase().includes(q) ||
+    d.brandName.toLowerCase().includes(q) ||
+    d.brandNameZh.includes(q) ||
+    d.genericName.toLowerCase().includes(q)
+  ).slice(0, 30);
+  dropdown.innerHTML = results.map((d, i) => `
+    <div class="dropdown-item" data-idx="${NHI_DRUGS.indexOf(d)}">
+      <span class="code">${d.code}</span>
+      <span class="name">${d.brandNameZh || d.brandName}</span>
+      <span class="generic">${d.genericName} | ${d.dosageForm} | ${d.atcCode}</span>
+    </div>
+  `).join('');
+  dropdown.classList.toggle('show', results.length > 0);
+  dropdown.querySelectorAll('.dropdown-item').forEach(el => {
+    el.addEventListener('click', () => addDrug(NHI_DRUGS[+el.dataset.idx]));
+  });
+}
+
+function addDrug(drug) {
+  if (RX_LIST.find(r => r.drug.code === drug.code)) return;
+  RX_LIST.push({ drug, dose: '', freq: 'tid', days: '3' });
+  renderRxList();
+  searchInput.value = '';
+  dropdown.classList.remove('show');
+  document.getElementById('btnCheck').disabled = RX_LIST.length < 1;
+}
+
+function removeDrug(idx) {
+  RX_LIST.splice(idx, 1);
+  renderRxList();
+  document.getElementById('btnCheck').disabled = RX_LIST.length < 1;
+  if (RX_LIST.length === 0) document.getElementById('results').style.display = 'none';
+}
+
+function renderRxList() {
+  const el = document.getElementById('rxList');
+  el.innerHTML = RX_LIST.map((r, i) => {
+    const gn = cleanGenericName(r.drug.genericName);
+    const gnLower = gn.toLowerCase().replace(/\s+/g, '-');
+    const showHep = /^J05A/.test(r.drug.atcCode);
+    const showHiv = /^J05A[RX]/.test(r.drug.atcCode);
+    return `
+    <div class="rx-item">
+      <div class="rx-name">${r.drug.brandNameZh || r.drug.brandName} <small>${r.drug.code} | ${r.drug.genericName} | ${r.drug.atcCode}</small></div>
+      <div class="rx-detail">
+        <input type="text" placeholder="劑量" value="${r.dose}" onchange="RX_LIST[${i}].dose=this.value" title="支援分數如 1/2, 1/4">
+        <select onchange="RX_LIST[${i}].freq=this.value">
+          ${['qd','bid','tid','qid','q4h','q6h','q8h','q4-6h','q6-8h','hs','prn','stat'].map(f => `<option value="${f}" ${r.freq===f?'selected':''}>${f}</option>`).join('')}
+        </select>
+        <input type="text" placeholder="天" value="${r.days}" onchange="RX_LIST[${i}].days=this.value" style="width:50px">天
+        <button class="rx-remove" onclick="removeDrug(${i})" title="移除">&times;</button>
+      </div>
+      <div class="rx-links">
+        <a href="https://www.drugs.com/drug-interactions/${encodeURIComponent(gnLower)}-index.html" target="_blank">Drugs.com</a>
+        <a href="https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${encodeURIComponent(gn)}" target="_blank">DailyMed</a>
+        <a href="https://medlineplus.gov/druginfo/meds/${encodeURIComponent(gn)}.html" target="_blank">MedlinePlus</a>
+        <a href="https://info.nhi.gov.tw/INAE3000/INAE3000S01" target="_blank">健保署</a>
+        ${showHep ? '<a href="https://www.hep-druginteractions.org/checker" target="_blank">Liverpool HEP</a>' : ''}
+        ${showHiv ? '<a href="https://www.hiv-druginteractions.org/checker" target="_blank">Liverpool HIV</a>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ──────────── CHECKBOX STYLING ────────────
+document.getElementById('flags').addEventListener('change', e => {
+  if (e.target.type === 'checkbox') e.target.parentElement.classList.toggle('checked', e.target.checked);
+});
+
+// ──────────── HELPERS ────────────
+function cleanGenericName(raw) {
+  if (!raw) return '';
+  let name = raw.split(/[;,+\/]/)[0].trim();
+  name = name.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s*\d+(\.\d+)?\s*(MG|MCG|G|ML|IU|%|UNIT).*$/i, '').trim();
+  return name;
+}
+
+function parseDose(str) {
+  if (!str) return 0;
+  str = str.trim();
+  const fracMatch = str.match(/^(\d+)\/(\d+)$/);
+  if (fracMatch) return +fracMatch[1] / +fracMatch[2];
+  return parseFloat(str) || 0;
+}
+
+function extractStrengthMg(drug) {
+  const gn = drug.genericName || '';
+  const m = gn.match(/([\d.]+)\s*MG/i);
+  if (m) return parseFloat(m[1]);
+  const mcg = gn.match(/([\d.]+)\s*MCG/i);
+  if (mcg) return parseFloat(mcg[1]) / 1000;
+  const g = gn.match(/([\d.]+)\s*G(?:\b|$)/i);
+  if (g) return parseFloat(g[1]) * 1000;
+  return 0;
+}
+
+function getFlags() {
+  const flags = {};
+  document.querySelectorAll('#flags input').forEach(cb => { flags[cb.value] = cb.checked; });
+  return flags;
+}
+
+// ──────────── openFDA CACHE ────────────
+const fdaCache = {};
+
+async function queryOpenFDA(genericName) {
+  const clean = cleanGenericName(genericName).toLowerCase();
+  if (!clean) return null;
+  if (fdaCache[clean]) return fdaCache[clean];
+  const cacheKey = `openfda_${clean}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) { fdaCache[clean] = JSON.parse(cached); return fdaCache[clean]; }
+
+  const apiKey = CONFIG.openfdaApiKey ? `&api_key=${CONFIG.openfdaApiKey}` : '';
+  const urls = [
+    `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${encodeURIComponent(clean)}"&limit=1${apiKey}`,
+    `https://api.fda.gov/drug/label.json?search=generic_name:"${encodeURIComponent(clean)}"&limit=1${apiKey}`
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (res.status === 429) { await new Promise(r => setTimeout(r, 1100)); const r2 = await fetch(url); if (!r2.ok) continue; const d2 = await r2.json(); if (d2.results) { fdaCache[clean] = d2.results[0]; sessionStorage.setItem(cacheKey, JSON.stringify(d2.results[0])); return d2.results[0]; } }
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.results && data.results.length) {
+        fdaCache[clean] = data.results[0];
+        sessionStorage.setItem(cacheKey, JSON.stringify(data.results[0]));
+        return data.results[0];
+      }
+    } catch(e) { /* offline or error */ }
+  }
+  fdaCache[clean] = null;
+  return null;
+}
+
+// ──────────── MAIN CHECK ────────────
+document.getElementById('btnCheck').addEventListener('click', runCheck);
+
+async function runCheck() {
+  const btn = document.getElementById('btnCheck');
+  const resultsDiv = document.getElementById('results');
+  const cardsDiv = document.getElementById('resultCards');
+  const summaryDiv = document.getElementById('summaryBar');
+  const statusDiv = document.getElementById('statusBar');
+
+  btn.disabled = true;
+  btn.textContent = '檢核中...';
+  resultsDiv.style.display = 'block';
+  cardsDiv.innerHTML = '<div class="loading"><span class="spinner"></span>正在檢核處方...</div>';
+  summaryDiv.innerHTML = '';
+
+  const flags = getFlags();
+  const weight = parseFloat(document.getElementById('patWeight').value) || 0;
+  const age = parseFloat(document.getElementById('patAge').value) || 0;
+  const ageUnit = document.getElementById('patAgeUnit').value;
+  const ageMonths = ageUnit === 'year' ? age * 12 : age;
+
+  const cards = []; // { type, severity, html }
+  let countHigh = 0, countMod = 0, countFda = 0, countDup = 0;
+
+  // ── Layer 1: ATC Rules ──
+  for (let i = 0; i < RX_LIST.length; i++) {
+    for (let j = i + 1; j < RX_LIST.length; j++) {
+      const a = RX_LIST[i].drug, b = RX_LIST[j].drug;
+      for (const rule of ATC_RULES) {
+        const match = (rule.a.test(a.atcCode) && rule.b.test(b.atcCode)) ||
+                      (rule.a.test(b.atcCode) && rule.b.test(a.atcCode));
+        if (match) {
+          const sev = rule.severity;
+          if (sev === 'high') countHigh++; else countMod++;
+          cards.push({
+            order: sev === 'high' ? 1 : 2,
+            html: `<div class="card card-${sev}">
+              <div class="card-title">${sev === 'high' ? '🔴' : '🟡'} ${rule.id} | ${rule.aDesc} + ${rule.bDesc}</div>
+              <div class="card-body">
+                <strong>${a.brandNameZh || a.brandName}</strong> (${a.atcCode}) + <strong>${b.brandNameZh || b.brandName}</strong> (${b.atcCode})<br>
+                風險：${rule.risk}
+                <div class="action">建議：${rule.action}</div>
+              </div>
+            </div>`
+          });
+        }
+      }
+    }
+  }
+
+  // ── Triple Whammy ──
+  const hasACEiARB = RX_LIST.some(r => /^C09/.test(r.drug.atcCode));
+  const hasNSAID = RX_LIST.some(r => /^M01A/.test(r.drug.atcCode));
+  const hasDiuretic = RX_LIST.some(r => /^C03/.test(r.drug.atcCode));
+  if (hasACEiARB && hasNSAID && hasDiuretic) {
+    countHigh++;
+    cards.push({
+      order: 0,
+      html: `<div class="card card-triple">
+        <div class="card-title">🔴 Triple Whammy</div>
+        <div class="card-body">
+          ACEi/ARB + NSAIDs + 利尿劑同時處方<br>
+          <strong>急性腎損傷風險極高</strong>
+          <div class="action">建議：移除 NSAIDs 或密切監測腎功能（Cr, eGFR）</div>
+        </div>
+      </div>`
+    });
+  }
+
+  // ── Layer 2: openFDA ──
+  let fdaQueried = 0, fdaOnline = true;
+  statusDiv.innerHTML = '<span class="spinner"></span>查詢 openFDA...';
+  const fdaResults = [];
+  const genericNames = RX_LIST.map(r => cleanGenericName(r.drug.genericName).toLowerCase());
+
+  const batchSize = 3;
+  for (let i = 0; i < RX_LIST.length; i += batchSize) {
+    const batch = RX_LIST.slice(i, i + batchSize);
+    const promises = batch.map(r => queryOpenFDA(r.drug.genericName));
+    const results = await Promise.all(promises);
+    results.forEach((label, bi) => {
+      const idx = i + bi;
+      if (label) {
+        fdaQueried++;
+        fdaResults.push({ idx, label });
+      }
+    });
+  }
+  if (fdaQueried === 0 && RX_LIST.length > 0) fdaOnline = false;
+
+  // Cross-check drug_interactions
+  for (const { idx, label } of fdaResults) {
+    const interactions = (label.drug_interactions || []).join(' ').toLowerCase();
+    const contraindications = (label.contraindications || []).join(' ').toLowerCase();
+    const combined = interactions + ' ' + contraindications;
+    const thisDrug = RX_LIST[idx].drug;
+    for (let j = 0; j < RX_LIST.length; j++) {
+      if (j === idx) continue;
+      const otherName = genericNames[j];
+      if (otherName.length < 3) continue;
+      if (combined.includes(otherName)) {
+        countFda++;
+        const excerpt = extractSentences(interactions + ' ' + contraindications, otherName);
+        cards.push({
+          order: 3,
+          html: `<div class="card card-fda">
+            <div class="card-title">🔵 FDA 仿單：${cleanGenericName(thisDrug.genericName)} 提及 ${cleanGenericName(RX_LIST[j].drug.genericName)}</div>
+            <div class="card-body">
+              <span class="collapsible" onclick="toggleCollapse(this)">原文摘錄</span>
+              <div class="collapsible-content">${escapeHtml(excerpt)}</div>
+              <div style="margin-top:6px;font-size:11px;color:var(--gray)">來源：openFDA Drug Label API</div>
+            </div>
+          </div>`
+        });
+      }
+    }
+  }
+
+  // ── Therapeutic Duplication ──
+  for (let i = 0; i < RX_LIST.length; i++) {
+    for (let j = i + 1; j < RX_LIST.length; j++) {
+      const a4 = RX_LIST[i].drug.atcCode.substring(0, 4);
+      const b4 = RX_LIST[j].drug.atcCode.substring(0, 4);
+      if (a4 && a4 === b4) {
+        const a5 = RX_LIST[i].drug.atcCode.substring(0, 5);
+        const b5 = RX_LIST[j].drug.atcCode.substring(0, 5);
+        const isException = DUP_EXCEPTIONS.some(([ea, eb]) =>
+          (a5.startsWith(ea) && b5.startsWith(eb)) || (a5.startsWith(eb) && b5.startsWith(ea))
+        );
+        if (!isException) {
+          countDup++;
+          cards.push({
+            order: 4,
+            html: `<div class="card card-dup">
+              <div class="card-title">⚠️ 治療重複（ATC ${a4}）</div>
+              <div class="card-body">
+                <strong>${RX_LIST[i].drug.brandNameZh || RX_LIST[i].drug.brandName}</strong> (${RX_LIST[i].drug.atcCode}) 與
+                <strong>${RX_LIST[j].drug.brandNameZh || RX_LIST[j].drug.brandName}</strong> (${RX_LIST[j].drug.atcCode})
+                屬同一治療類別
+              </div>
+            </div>`
+          });
+        }
+      }
+    }
+  }
+
+  // ── Special Populations ──
+  // Beers
+  if (flags.elderly) {
+    for (const r of RX_LIST) {
+      for (const b of BEERS) {
+        if (b.atc.test(r.drug.atcCode)) {
+          cards.push({
+            order: 5,
+            html: `<div class="card card-beers">
+              <div class="card-title">👴 Beers Criteria | ${b.desc}</div>
+              <div class="card-body">
+                <strong>${r.drug.brandNameZh || r.drug.brandName}</strong> (${r.drug.atcCode})<br>
+                風險：${b.risk}
+              </div>
+            </div>`
+          });
+        }
+      }
+    }
+    // openFDA geriatric_use
+    for (const { idx, label } of fdaResults) {
+      if (label.geriatric_use) {
+        cards.push({
+          order: 5.5,
+          html: `<div class="card card-fda">
+            <div class="card-title">🔵 FDA 仿單：${cleanGenericName(RX_LIST[idx].drug.genericName)} 老年用藥資訊</div>
+            <div class="card-body">
+              <span class="collapsible" onclick="toggleCollapse(this)">FDA Geriatric Use</span>
+              <div class="collapsible-content">${escapeHtml(label.geriatric_use[0].substring(0, 800))}</div>
+            </div>
+          </div>`
+        });
+      }
+    }
+  }
+
+  // Pregnancy
+  if (flags.pregnant) {
+    for (const r of RX_LIST) {
+      for (const p of PREGNANCY_CI) {
+        if (p.atc.test(r.drug.atcCode)) {
+          cards.push({
+            order: 5,
+            html: `<div class="card card-pregnancy">
+              <div class="card-title">🤰 孕婦禁忌 | ${p.desc}</div>
+              <div class="card-body">
+                <strong>${r.drug.brandNameZh || r.drug.brandName}</strong><br>
+                禁用期間：${p.period}<br>
+                原因：${p.reason}
+              </div>
+            </div>`
+          });
+        }
+      }
+    }
+    for (const { idx, label } of fdaResults) {
+      if (label.pregnancy) {
+        cards.push({
+          order: 5.5,
+          html: `<div class="card card-fda">
+            <div class="card-title">🔵 FDA 仿單：${cleanGenericName(RX_LIST[idx].drug.genericName)} 孕期用藥資訊</div>
+            <div class="card-body">
+              <span class="collapsible" onclick="toggleCollapse(this)">FDA Pregnancy</span>
+              <div class="collapsible-content">${escapeHtml((label.pregnancy[0] || '').substring(0, 800))}</div>
+            </div>
+          </div>`
+        });
+      }
+    }
+  }
+
+  // Renal
+  if (flags.renal) {
+    for (const r of RX_LIST) {
+      for (const ra of RENAL_ALERTS) {
+        if (ra.atc.test(r.drug.atcCode)) {
+          cards.push({
+            order: 5,
+            html: `<div class="card card-renal">
+              <div class="card-title">🫘 腎功能警示 | ${ra.desc}</div>
+              <div class="card-body">
+                <strong>${r.drug.brandNameZh || r.drug.brandName}</strong><br>
+                處理：${ra.action}
+              </div>
+            </div>`
+          });
+        }
+      }
+    }
+  }
+
+  // Child - openFDA pediatric_use
+  if (flags.child) {
+    for (const { idx, label } of fdaResults) {
+      if (label.pediatric_use) {
+        cards.push({
+          order: 5.5,
+          html: `<div class="card card-fda">
+            <div class="card-title">🔵 FDA 仿單：${cleanGenericName(RX_LIST[idx].drug.genericName)} 兒童用藥資訊</div>
+            <div class="card-body">
+              <span class="collapsible" onclick="toggleCollapse(this)">FDA Pediatric Use</span>
+              <div class="collapsible-content">${escapeHtml((label.pediatric_use[0] || '').substring(0, 800))}</div>
+            </div>
+          </div>`
+        });
+      }
+    }
+  }
+
+  // ── Pediatric Dosing ──
+  if (weight > 0) {
+    for (const r of RX_LIST) {
+      const dose = parseDose(r.dose);
+      if (dose <= 0) continue;
+      const strengthMg = extractStrengthMg(r.drug);
+      if (strengthMg <= 0) continue;
+      const singleDoseMg = dose * strengthMg;
+      const mgKgDose = singleDoseMg / weight;
+      const freqNum = FREQ_MAP[r.freq] || 1;
+      const dailyMg = singleDoseMg * freqNum;
+      const mgKgDay = dailyMg / weight;
+      const gn = cleanGenericName(r.drug.genericName).toLowerCase();
+      const pedRefs = PEDIATRIC_DOSING.filter(p => gn.includes(p.generic.toLowerCase()));
+
+      if (pedRefs.length > 0) {
+        for (const ref of pedRefs) {
+          if (ref.min_age_months > 0 && ageMonths < ref.min_age_months) {
+            cards.push({ order: 6, html: `<div class="card card-pedi-danger">
+              <div class="card-title">🔴 兒科年齡限制 | ${ref.generic}</div>
+              <div class="card-body"><strong>${r.drug.brandNameZh || r.drug.brandName}</strong><br>最低適用月齡：${ref.min_age_months} 個月，病人：${ageMonths.toFixed(0)} 個月${ref.notes ? '<br>備註：' + ref.notes : ''}</div>
+            </div>` });
+            continue;
+          }
+          let status = '✅', cardClass = 'card-pedi';
+          const refFreq = FREQ_MAP[ref.freq] || FREQ_MAP[ref.freq.split('-')[0]] || 1;
+          const refMinDay = ref.mg_kg_dose_min * refFreq;
+          const refMaxDay = ref.mg_kg_dose_max * refFreq;
+
+          if (ref.mg_kg_dose_max > 0) {
+            if (mgKgDose > ref.mg_kg_dose_max * 1.2) { status = '🔴 偏高'; cardClass = 'card-pedi-danger'; }
+            else if (mgKgDose < ref.mg_kg_dose_min * 0.8) { status = '⚠️ 偏低'; cardClass = 'card-pedi-warn'; }
+          }
+          if (ref.max_daily_mg && dailyMg > ref.max_daily_mg) { status = '🔴 超過每日最大劑量'; cardClass = 'card-pedi-danger'; }
+          if (ref.max_daily_mg_per_kg && mgKgDay > ref.max_daily_mg_per_kg) { status = '🔴 超過每日 mg/kg 上限'; cardClass = 'card-pedi-danger'; }
+
+          cards.push({ order: 6, html: `<div class="card ${cardClass}">
+            <div class="card-title">👶 兒科劑量 | ${ref.generic}（${ref.indication}）${status}</div>
+            <div class="card-body">
+              <strong>${r.drug.brandNameZh || r.drug.brandName}</strong>（${strengthMg} mg/顆）<br>
+              處方：${dose} 顆 × ${strengthMg} mg = <strong>${singleDoseMg.toFixed(1)} mg/dose</strong>（${r.freq}）<br>
+              體重 ${weight} kg → <strong>${mgKgDose.toFixed(2)} mg/kg/dose</strong> · ${mgKgDay.toFixed(2)} mg/kg/day<br>
+              參考範圍：${ref.mg_kg_dose_min}-${ref.mg_kg_dose_max} mg/kg/dose（${ref.freq}）${ref.max_daily_mg ? '，每日上限 ' + ref.max_daily_mg + ' mg' : ''}
+              ${ref.notes ? '<br>備註：' + ref.notes : ''}
+            </div>
+          </div>` });
+        }
+      }
+    }
+  }
+
+  // ── Sort & Render ──
+  cards.sort((a, b) => a.order - b.order);
+  cardsDiv.innerHTML = cards.map(c => c.html).join('');
+  if (cards.length === 0) {
+    cardsDiv.innerHTML = '<div class="card" style="background:#f0fdf4;border-color:#16a34a"><div class="card-title">✅ 未發現交互作用或警示</div><div class="card-body">處方檢核完成，未偵測到 ATC 規則引擎或 openFDA 仿單中的交互作用。</div></div>';
+  }
+
+  // Summary
+  summaryDiv.innerHTML = `
+    ${countHigh ? `<span class="badge badge-red">🔴 ${countHigh} 高風險</span>` : ''}
+    ${countMod ? `<span class="badge badge-yellow">🟡 ${countMod} 中風險</span>` : ''}
+    ${countFda ? `<span class="badge badge-blue">🔵 ${countFda} FDA 仿單提及</span>` : ''}
+    ${countDup ? `<span class="badge badge-orange">⚠️ ${countDup} 治療重複</span>` : ''}
+    ${!countHigh && !countMod && !countFda && !countDup ? '<span class="badge badge-green">✅ 無交互作用警示</span>' : ''}
+  `;
+
+  // Status
+  const now = new Date().toLocaleTimeString('zh-TW');
+  statusDiv.innerHTML = fdaOnline
+    ? `<span class="online">✅ openFDA 已查詢 ${fdaQueried} 項</span> · ${now}`
+    : `<span class="offline">⚠️ 離線模式（僅顯示 ATC 規則引擎結果）</span> · ${now}`;
+
+  btn.disabled = false;
+  btn.textContent = '開始檢核';
+}
+
+// ──────────── UTILITIES ────────────
+function extractSentences(text, keyword) {
+  const lc = text.toLowerCase();
+  const idx = lc.indexOf(keyword.toLowerCase());
+  if (idx === -1) return '';
+  const start = Math.max(0, text.lastIndexOf('.', idx) + 1);
+  let end = text.indexOf('.', idx + keyword.length);
+  if (end === -1) end = Math.min(text.length, idx + 300);
+  else {
+    const next = text.indexOf('.', end + 1);
+    end = next !== -1 ? next + 1 : end + 1;
+  }
+  return text.substring(start, Math.min(end, start + 500)).trim();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function toggleCollapse(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('show');
+}
+
+// ──────────── INIT ────────────
+async function initFromScripts() {
+  if (typeof NHI_DRUGS_DATA !== 'undefined') NHI_DRUGS = NHI_DRUGS_DATA;
+  if (typeof PEDIATRIC_DOSING_DATA !== 'undefined') PEDIATRIC_DOSING = PEDIATRIC_DOSING_DATA;
+  if (typeof CONFIG_DATA !== 'undefined' && CONFIG_DATA.openfdaApiKey) CONFIG.openfdaApiKey = CONFIG_DATA.openfdaApiKey;
+  // Fallback: try loading config.json if config.js didn't provide a key
+  if (!CONFIG.openfdaApiKey) {
+    try {
+      const res = await fetch('config.json');
+      if (res.ok) { const cfg = await res.json(); if (cfg.openfdaApiKey) CONFIG.openfdaApiKey = cfg.openfdaApiKey; }
+    } catch(e) { /* ignore */ }
+  }
+  document.getElementById('statusBar').innerHTML = NHI_DRUGS.length
+    ? `已載入 ${NHI_DRUGS.length.toLocaleString()} 項健保藥品` + (CONFIG.openfdaApiKey ? ' · openFDA API key ✅' : ' · openFDA 無 key 模式')
+    : '<span class="offline">未載入藥品資料，請確認 nhi-drugs.js 存在</span>';
+}
+initFromScripts();
+</script>
+</body>
+</html>

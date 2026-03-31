@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Module A - 多語言藥袋產生器</title>
+<style>
+:root {
+  --blue: #2563eb; --blue-bg: #eff6ff; --blue-border: #93c5fd;
+  --gray: #6b7280; --gray-bg: #f9fafb; --gray-border: #d1d5db;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: #f3f4f6; color: #1f2937; font-size: 14px; }
+.container { max-width: 900px; margin: 0 auto; padding: 8px; }
+header { background: linear-gradient(135deg, #065f46, #10b981); color: #fff; padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+header h1 { font-size: 20px; font-weight: 700; }
+header p { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+
+.section { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+
+/* Search */
+.search-box { position: relative; }
+.search-box input { width: 100%; padding: 10px 12px; border: 2px solid var(--gray-border); border-radius: 8px; font-size: 15px; outline: none; }
+.search-box input:focus { border-color: #10b981; }
+.dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--gray-border); border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.dropdown.show { display: block; }
+.dropdown-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.dropdown-item:hover { background: #ecfdf5; }
+.dropdown-item .code { color: #059669; font-weight: 600; font-size: 12px; }
+.dropdown-item .name { display: block; }
+.dropdown-item .generic { color: var(--gray); font-size: 12px; }
+
+/* Rx list */
+.rx-item { padding: 12px; background: var(--gray-bg); border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--gray-border); }
+.rx-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.rx-item-header .rx-name { font-weight: 600; font-size: 13px; flex: 1; }
+.rx-item-header .rx-name small { font-weight: 400; color: var(--gray); }
+.rx-remove { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 18px; padding: 4px 8px; }
+.rx-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.rx-fields label { font-size: 12px; color: var(--gray); display: flex; flex-direction: column; gap: 2px; }
+.rx-fields input, .rx-fields select { padding: 6px 8px; border: 1px solid var(--gray-border); border-radius: 6px; font-size: 13px; }
+.rx-fields input { width: 65px; }
+.rx-fields select { max-width: 150px; }
+
+/* Warnings multi-select */
+.warnings-select { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.warnings-select label { font-size: 12px; padding: 3px 8px; border: 1px solid var(--gray-border); border-radius: 5px; cursor: pointer; user-select: none; }
+.warnings-select label.checked { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.warnings-select input { display: none; }
+
+/* Settings row */
+.settings-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.settings-row label { font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.settings-row input, .settings-row select { padding: 8px 10px; border: 1px solid var(--gray-border); border-radius: 6px; font-size: 13px; }
+.lang-checks { display: flex; flex-wrap: wrap; gap: 6px; }
+.lang-checks label { font-size: 13px; padding: 6px 12px; border: 1px solid var(--gray-border); border-radius: 6px; cursor: pointer; user-select: none; }
+.lang-checks label.checked { background: #ecfdf5; border-color: #10b981; color: #065f46; font-weight: 600; }
+.lang-checks input { display: none; }
+
+/* Buttons */
+.btn { padding: 12px 20px; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.btn-generate { width: 100%; background: linear-gradient(135deg, #065f46, #10b981); color: #fff; margin-top: 8px; }
+.btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-generate:active:not(:disabled) { transform: scale(0.98); }
+.btn-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.btn-print { background: #1e40af; color: #fff; }
+.btn-back { background: #6b7280; color: #fff; }
+
+/* ─── Output (photo-optimized) ─── */
+#outputView { display: none; }
+.output-page { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.output-header { text-align: center; border-bottom: 3px solid #1f2937; padding-bottom: 12px; margin-bottom: 16px; }
+.output-header .pharmacy-name { font-size: 22px; font-weight: 800; }
+.output-header .date { font-size: 14px; color: var(--gray); margin-top: 4px; }
+.output-header .lang-label { font-size: 13px; color: #059669; margin-top: 2px; }
+
+.drug-block { border: 2px solid #1f2937; border-radius: 10px; padding: 16px; margin-bottom: 14px; page-break-inside: avoid; }
+.drug-block-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.drug-block-name-en { font-size: 14px; color: var(--gray); margin-bottom: 10px; }
+.drug-instruction { font-size: 20px; font-weight: 700; line-height: 1.6; margin-bottom: 6px; }
+.drug-instruction .icons { font-size: 22px; margin-right: 4px; }
+.drug-timing-icons { font-size: 26px; letter-spacing: 6px; margin: 8px 0; }
+.drug-warnings { margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 8px; border: 1px solid #f59e0b; }
+.drug-warnings p { font-size: 16px; line-height: 1.6; margin-bottom: 4px; }
+
+.output-footer { text-align: center; border-top: 2px solid #1f2937; padding-top: 12px; margin-top: 16px; font-size: 13px; color: var(--gray); }
+
+/* Print */
+@media print {
+  body { background: #fff; }
+  .container { max-width: 100%; padding: 0; }
+  header, #inputView, .btn-row { display: none !important; }
+  #outputView { display: block !important; }
+  .output-page { box-shadow: none; border-radius: 0; padding: 16px; }
+  .drug-block { border-width: 2px; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 4px; }
+  .section { padding: 12px; }
+  header { padding: 12px; }
+  header h1 { font-size: 17px; }
+  .drug-instruction { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Module A - 多語言藥袋產生器</h1>
+    <p>外籍病人用藥指示 — 印尼語 / 越南語 / 泰語 / 日語 / 英語</p>
+  </header>
+
+  <!-- ─── INPUT VIEW ─── -->
+  <div id="inputView">
+    <div class="section">
+      <div class="section-title">藥品搜尋</div>
+      <div class="search-box">
+        <input type="text" id="drugSearch" placeholder="搜尋藥品（健保碼 / 中英文名 / 學名）" autocomplete="off">
+        <div class="dropdown" id="drugDropdown"></div>
+      </div>
+      <div id="rxList" style="margin-top:12px"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">輸出設定</div>
+      <div class="settings-row">
+        <label>藥局名稱 <input type="text" id="pharmacyName" placeholder="○○藥局" value=""></label>
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;">目標語言（可多選）</div>
+        <div class="lang-checks" id="langChecks">
+          <label class="checked"><input type="checkbox" value="id" checked>印尼語</label>
+          <label><input type="checkbox" value="vi">越南語</label>
+          <label><input type="checkbox" value="th">泰語</label>
+          <label><input type="checkbox" value="ja">日語</label>
+          <label><input type="checkbox" value="en">英語</label>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-generate" id="btnGenerate" disabled>產生多語言藥袋</button>
+    <div style="text-align:center;padding:10px;font-size:12px;color:var(--gray)" id="statusBar">載入中...</div>
+  </div>
+
+  <!-- ─── OUTPUT VIEW ─── -->
+  <div id="outputView">
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="showInput()">返回編輯</button>
+      <button class="btn btn-print" onclick="window.print()">列印 / PDF</button>
+    </div>
+    <div id="outputContent"></div>
+  </div>
+</div>
+
+<!-- ─── DATA ─── -->
+<script src="nhi-drugs.js"></script>
+<script>
+// ──────────── TRANSLATION TABLES ────────────
+const FREQ = {
+  qd:     { zh:'每天一次', en:'Once daily', id:'Sekali sehari', vi:'Ngày một lần', th:'วันละ 1 ครั้ง', ja:'1日1回' },
+  bid:    { zh:'每天兩次', en:'Twice daily', id:'Dua kali sehari', vi:'Ngày hai lần', th:'วันละ 2 ครั้ง', ja:'1日2回' },
+  tid:    { zh:'每天三次', en:'Three times daily', id:'Tiga kali sehari', vi:'Ngày ba lần', th:'วันละ 3 ครั้ง', ja:'1日3回' },
+  qid:    { zh:'每天四次', en:'Four times daily', id:'Empat kali sehari', vi:'Ngày bốn lần', th:'วันละ 4 ครั้ง', ja:'1日4回' },
+  q4h:    { zh:'每四小時一次', en:'Every 4 hours', id:'Setiap 4 jam', vi:'Mỗi 4 giờ', th:'ทุก 4 ชั่วโมง', ja:'4時間ごと' },
+  q6h:    { zh:'每六小時一次', en:'Every 6 hours', id:'Setiap 6 jam', vi:'Mỗi 6 giờ', th:'ทุก 6 ชั่วโมง', ja:'6時間ごと' },
+  q8h:    { zh:'每八小時一次', en:'Every 8 hours', id:'Setiap 8 jam', vi:'Mỗi 8 giờ', th:'ทุก 8 ชั่วโมง', ja:'8時間ごと' },
+  q12h:   { zh:'每十二小時一次', en:'Every 12 hours', id:'Setiap 12 jam', vi:'Mỗi 12 giờ', th:'ทุก 12 ชั่วโมง', ja:'12時間ごと' },
+  'prn_q4-6h': { zh:'需要時，每4-6小時一次', en:'Every 4-6 hours as needed', id:'Setiap 4-6 jam bila perlu', vi:'Mỗi 4-6 giờ khi cần', th:'ทุก 4-6 ชั่วโมงเมื่อจำเป็น', ja:'必要時4-6時間ごと' },
+  'prn_q6-8h': { zh:'需要時，每6-8小時一次', en:'Every 6-8 hours as needed', id:'Setiap 6-8 jam bila perlu', vi:'Mỗi 6-8 giờ khi cần', th:'ทุก 6-8 ชั่วโมงเมื่อจำเป็น', ja:'必要時6-8時間ごと' },
+  prn:    { zh:'需要時使用', en:'As needed', id:'Bila perlu', vi:'Khi cần', th:'เมื่อจำเป็น', ja:'必要時' },
+  hs:     { zh:'睡前一次', en:'At bedtime', id:'Sebelum tidur', vi:'Trước khi đi ngủ', th:'ก่อนนอน', ja:'就寝前' },
+  qod:    { zh:'每隔一天一次', en:'Every other day', id:'Selang satu hari', vi:'Cách một ngày', th:'วันเว้นวัน', ja:'1日おき' },
+  weekly: { zh:'每週一次', en:'Once a week', id:'Seminggu sekali', vi:'Mỗi tuần một lần', th:'สัปดาห์ละครั้ง', ja:'週1回' }
+};
+
+const TIMING = {
+  ac:            { zh:'飯前', en:'Before meals', id:'Sebelum makan', vi:'Trước bữa ăn', th:'ก่อนอาหาร', ja:'食前', icon:'⏰' },
+  pc:            { zh:'飯後', en:'After meals', id:'Sesudah makan', vi:'Sau bữa ăn', th:'หลังอาหาร', ja:'食後', icon:'🕐' },
+  ac30:          { zh:'飯前三十分鐘', en:'30 min before meals', id:'30 menit sebelum makan', vi:'30 phút trước bữa ăn', th:'30 นาทีก่อนอาหาร', ja:'食前30分', icon:'⏰' },
+  pc30:          { zh:'飯後三十分鐘', en:'30 min after meals', id:'30 menit sesudah makan', vi:'30 phút sau bữa ăn', th:'30 นาทีหลังอาหาร', ja:'食後30分', icon:'🕐' },
+  with_food:     { zh:'隨餐服用', en:'With food', id:'Bersama makanan', vi:'Trong bữa ăn', th:'พร้อมอาหาร', ja:'食事と一緒に', icon:'🍽️' },
+  empty_stomach: { zh:'空腹服用', en:'On empty stomach', id:'Saat perut kosong', vi:'Khi bụng đói', th:'ขณะท้องว่าง', ja:'空腹時', icon:'⏰' },
+  ac_or_pc:      { zh:'飯前或飯後皆可', en:'Before or after meals', id:'Sebelum atau sesudah makan', vi:'Trước hoặc sau bữa ăn', th:'ก่อนหรือหลังอาหาร', ja:'食前または食後', icon:'🍽️' },
+  bedtime:       { zh:'睡前', en:'Before bed', id:'Sebelum tidur', vi:'Trước khi ngủ', th:'ก่อนนอน', ja:'就寝前', icon:'🛏️' },
+  morning:       { zh:'早上', en:'In the morning', id:'Pagi hari', vi:'Buổi sáng', th:'ตอนเช้า', ja:'朝', icon:'☀️' },
+  anytime:       { zh:'不限時間', en:'Any time of day', id:'Kapan saja', vi:'Bất kỳ lúc nào', th:'เวลาใดก็ได้', ja:'いつでも', icon:'🕐' }
+};
+
+const FORM = {
+  tablet:      { zh:'錠（吞服）', en:'tablet(s) - swallow', id:'tablet - ditelan', vi:'viên - nuốt', th:'เม็ด - กลืน', ja:'錠 - 飲み込む' },
+  capsule:     { zh:'膠囊（吞服）', en:'capsule(s) - swallow', id:'kapsul - ditelan', vi:'viên nang - nuốt', th:'แคปซูล - กลืน', ja:'カプセル - 飲み込む' },
+  liquid:      { zh:'毫升（口服液）', en:'mL - oral liquid', id:'mL - obat cair', vi:'mL - thuốc nước', th:'มล. - ยาน้ำ', ja:'mL - 内服液' },
+  topical:     { zh:'外用塗抹', en:'Apply to skin', id:'Oleskan di kulit', vi:'Thoa ngoài da', th:'ทาผิวหนัง', ja:'皮膚に塗る' },
+  eye_drops:   { zh:'滴（點眼）', en:'drop(s) - in eye', id:'tetes - di mata', vi:'giọt - nhỏ mắt', th:'หยด - หยอดตา', ja:'滴 - 点眼' },
+  ear_drops:   { zh:'滴（點耳）', en:'drop(s) - in ear', id:'tetes - di telinga', vi:'giọt - nhỏ tai', th:'หยด - หยอดหู', ja:'滴 - 点耳' },
+  inhaler:     { zh:'吸（吸入劑）', en:'puff(s) - inhale', id:'semprot - dihirup', vi:'nhát xịt - hít vào', th:'พ่น - สูดเข้า', ja:'吸入' },
+  suppository: { zh:'顆（肛門塞劑）', en:'suppository - insert rectally', id:'supositoria - masukkan ke dubur', vi:'viên đặt - đặt hậu môn', th:'เม็ดเหน็บ - สอดทวารหนัก', ja:'個 - 肛門挿入' },
+  vaginal:     { zh:'顆（陰道塞劑）', en:'Insert vaginally', id:'Masukkan ke vagina', vi:'Đặt âm đạo', th:'สอดช่องคลอด', ja:'膣内挿入' },
+  patch:       { zh:'片（貼片）', en:'patch - apply to skin', id:'plester - tempel di kulit', vi:'miếng dán - dán lên da', th:'แผ่น - แปะผิวหนัง', ja:'枚 - 皮膚に貼る' }
+};
+
+const WARNINGS = {
+  no_alcohol:         { zh:'服藥期間請勿飲酒', en:'Do not drink alcohol while taking this medicine', id:'Jangan minum alkohol selama minum obat ini', vi:'Không uống rượu bia khi đang dùng thuốc này', th:'ห้ามดื่มแอลกอฮอล์ขณะกินยานี้', ja:'服薬中は飲酒しないでください', icon:'🚫🍺' },
+  drowsy:             { zh:'本藥可能引起嗜睡，請勿開車或操作機械', en:'May cause drowsiness. Do not drive or use machines', id:'Obat ini bisa menyebabkan kantuk. Jangan mengemudi', vi:'Thuốc có thể gây buồn ngủ. Không lái xe', th:'ยานี้อาจทำให้ง่วง ห้ามขับรถ', ja:'眠気を催すことがあります。運転しないでください', icon:'🚗❌' },
+  complete_course:    { zh:'請服用完整個療程，即使症狀改善也不要自行停藥', en:'Complete the full course. Do not stop even if you feel better', id:'Habiskan semua obat. Jangan berhenti meskipun sudah merasa baik', vi:'Uống hết thuốc. Đừng ngừng dù đã thấy khỏe hơn', th:'กินยาให้ครบ อย่าหยุดแม้อาการจะดีขึ้น', ja:'症状が良くなっても、処方された分を全て飲みきってください', icon:'💊' },
+  plenty_water:       { zh:'請搭配大量開水服用', en:'Take with plenty of water', id:'Minum dengan banyak air', vi:'Uống với nhiều nước', th:'ดื่มน้ำมากๆ', ja:'水をたくさん飲んでください', icon:'💧' },
+  no_dairy:           { zh:'服藥前後兩小時避免乳製品', en:'Avoid dairy products 2 hours before and after', id:'Hindari susu 2 jam sebelum dan sesudah minum obat', vi:'Tránh sữa 2 giờ trước và sau khi uống thuốc', th:'หลีกเลี่ยงนม 2 ชม.ก่อนและหลังกินยา', ja:'服薬の前後2時間は乳製品を避けてください', icon:'🥛🚫' },
+  sun_avoid:          { zh:'服藥期間請避免日曬', en:'Avoid sun exposure while taking this medicine', id:'Hindari sinar matahari selama minum obat ini', vi:'Tránh ánh nắng khi đang dùng thuốc', th:'หลีกเลี่ยงแสงแดดขณะกินยา', ja:'服薬中は日光を避けてください', icon:'☀️🚫' },
+  shake_well:         { zh:'使用前請搖勻', en:'Shake well before use', id:'Kocok dulu sebelum dipakai', vi:'Lắc đều trước khi dùng', th:'เขย่าขวดก่อนใช้', ja:'使用前によく振ってください', icon:'🫨' },
+  refrigerate:        { zh:'請冷藏保存（2-8°C）', en:'Keep refrigerated (2-8°C)', id:'Simpan di kulkas (2-8°C)', vi:'Bảo quản trong tủ lạnh (2-8°C)', th:'เก็บในตู้เย็น (2-8°C)', ja:'冷蔵保存（2-8°C）', icon:'❄️' },
+  no_crush:           { zh:'請整顆吞服，不可磨碎或剝半', en:'Swallow whole. Do not crush or split', id:'Telan utuh. Jangan digerus atau dibelah', vi:'Nuốt nguyên viên. Không nghiền hoặc bẻ', th:'กลืนทั้งเม็ด ห้ามบดหรือแบ่ง', ja:'噛まずにそのまま飲み込んでください', icon:'💊' },
+  empty_stomach_note: { zh:'空腹服用效果較好（飯前一小時或飯後兩小時）', en:'Take on empty stomach (1hr before or 2hr after meals)', id:'Minum saat perut kosong (1 jam sebelum atau 2 jam sesudah makan)', vi:'Uống lúc đói (1 giờ trước hoặc 2 giờ sau ăn)', th:'กินตอนท้องว่าง (1 ชม.ก่อน หรือ 2 ชม.หลังอาหาร)', ja:'空腹時に服用（食前1時間または食後2時間）', icon:'⏰' }
+};
+
+const LANG_NAMES = { zh:'中文', en:'English', id:'Bahasa Indonesia', vi:'Tiếng Việt', th:'ภาษาไทย', ja:'日本語' };
+
+// Freq → time-of-day icons
+const FREQ_ICONS = {
+  qd:'☀️', bid:'☀️ 🌙', tid:'☀️ 🌤️ 🌙', qid:'☀️ 🌤️ 🌙 🛏️',
+  q4h:'⏰', q6h:'⏰', q8h:'⏰', q12h:'⏰',
+  'prn_q4-6h':'⏰', 'prn_q6-8h':'⏰', prn:'⏰', hs:'🛏️', qod:'☀️', weekly:'☀️'
+};
+
+// ──────────── STATE ────────────
+let NHI_DRUGS = [];
+const RX_LIST = [];
+
+// ──────────── AUTO-DETECT DOSAGE FORM ────────────
+function guessForm(drug) {
+  const df = (drug.dosageForm || '').toLowerCase();
+  if (/膠囊/.test(df)) return 'capsule';
+  if (/膜衣錠|糖衣錠|錠|咀嚼/.test(df)) return 'tablet';
+  if (/液|糖漿|懸液/.test(df)) return 'liquid';
+  if (/乳膏|軟膏|凝膠|外用/.test(df)) return 'topical';
+  if (/點眼|眼/.test(df)) return 'eye_drops';
+  if (/點耳|耳/.test(df)) return 'ear_drops';
+  if (/吸入|噴霧/.test(df)) return 'inhaler';
+  if (/肛門|塞劑/.test(df) && !/陰道/.test(df)) return 'suppository';
+  if (/陰道/.test(df)) return 'vaginal';
+  if (/貼片/.test(df)) return 'patch';
+  return 'tablet';
+}
+
+// ──────────── INIT ────────────
+function init() {
+  if (typeof NHI_DRUGS_DATA !== 'undefined') NHI_DRUGS = NHI_DRUGS_DATA;
+  document.getElementById('statusBar').textContent = NHI_DRUGS.length
+    ? `已載入 ${NHI_DRUGS.length.toLocaleString()} 項健保藥品`
+    : '未載入藥品資料，請確認 nhi-drugs.js 存在';
+}
+init();
+
+// ──────────── SEARCH ────────────
+const searchInput = document.getElementById('drugSearch');
+const dropdown = document.getElementById('drugDropdown');
+let searchTimeout;
+
+searchInput.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(doSearch, 200); });
+searchInput.addEventListener('focus', () => { if (dropdown.children.length) dropdown.classList.add('show'); });
+document.addEventListener('click', e => { if (!e.target.closest('.search-box')) dropdown.classList.remove('show'); });
+
+function doSearch() {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) { dropdown.classList.remove('show'); return; }
+  const results = NHI_DRUGS.filter(d =>
+    d.code.toLowerCase().includes(q) ||
+    d.brandName.toLowerCase().includes(q) ||
+    d.brandNameZh.includes(q) ||
+    d.genericName.toLowerCase().includes(q)
+  ).slice(0, 30);
+  dropdown.innerHTML = results.map(d => `
+    <div class="dropdown-item" data-code="${d.code}">
+      <span class="code">${d.code}</span>
+      <span class="name">${d.brandNameZh || d.brandName}</span>
+      <span class="generic">${d.genericName} | ${d.dosageForm}</span>
+    </div>`).join('');
+  dropdown.classList.toggle('show', results.length > 0);
+  dropdown.querySelectorAll('.dropdown-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const drug = NHI_DRUGS.find(d => d.code === el.dataset.code);
+      if (drug) addDrug(drug);
+    });
+  });
+}
+
+function addDrug(drug) {
+  if (RX_LIST.find(r => r.drug.code === drug.code)) return;
+  RX_LIST.push({ drug, dose: '1', freq: 'tid', timing: 'pc', form: guessForm(drug), days: '3', warnings: [] });
+  renderRxList();
+  searchInput.value = '';
+  dropdown.classList.remove('show');
+  updateBtn();
+}
+
+function removeDrug(idx) {
+  RX_LIST.splice(idx, 1);
+  renderRxList();
+  updateBtn();
+}
+
+function updateBtn() {
+  document.getElementById('btnGenerate').disabled = RX_LIST.length < 1;
+}
+
+function renderRxList() {
+  document.getElementById('rxList').innerHTML = RX_LIST.map((r, i) => `
+    <div class="rx-item">
+      <div class="rx-item-header">
+        <div class="rx-name">${r.drug.brandNameZh || r.drug.brandName} <small>${r.drug.code}</small></div>
+        <button class="rx-remove" onclick="removeDrug(${i})">&times;</button>
+      </div>
+      <div class="rx-fields">
+        <label>每次劑量<input type="text" value="${r.dose}" onchange="RX_LIST[${i}].dose=this.value"></label>
+        <label>劑型<select onchange="RX_LIST[${i}].form=this.value">${Object.entries(FORM).map(([k,v]) => `<option value="${k}" ${r.form===k?'selected':''}>${v.zh}</option>`).join('')}</select></label>
+        <label>頻率<select onchange="RX_LIST[${i}].freq=this.value">${Object.entries(FREQ).map(([k,v]) => `<option value="${k}" ${r.freq===k?'selected':''}>${v.zh} (${k})</option>`).join('')}</select></label>
+        <label>服用時間<select onchange="RX_LIST[${i}].timing=this.value">${Object.entries(TIMING).map(([k,v]) => `<option value="${k}" ${r.timing===k?'selected':''}>${v.icon} ${v.zh}</option>`).join('')}</select></label>
+        <label>天數<input type="number" value="${r.days}" min="1" onchange="RX_LIST[${i}].days=this.value" style="width:55px"></label>
+      </div>
+      <div class="warnings-select" id="warn-${i}">
+        ${Object.entries(WARNINGS).map(([k,v]) => `<label class="${r.warnings.includes(k)?'checked':''}"><input type="checkbox" value="${k}" ${r.warnings.includes(k)?'checked':''} onchange="toggleWarning(${i},'${k}',this)">${v.icon} ${v.zh}</label>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleWarning(rxIdx, key, cb) {
+  const w = RX_LIST[rxIdx].warnings;
+  if (cb.checked) { if (!w.includes(key)) w.push(key); }
+  else { const idx = w.indexOf(key); if (idx > -1) w.splice(idx, 1); }
+  cb.parentElement.classList.toggle('checked', cb.checked);
+}
+
+// ──────────── LANG CHECKS ────────────
+document.getElementById('langChecks').addEventListener('change', e => {
+  if (e.target.type === 'checkbox') e.target.parentElement.classList.toggle('checked', e.target.checked);
+});
+
+function getSelectedLangs() {
+  return [...document.querySelectorAll('#langChecks input:checked')].map(cb => cb.value);
+}
+
+// ──────────── GENERATE OUTPUT ────────────
+document.getElementById('btnGenerate').addEventListener('click', generate);
+
+function generate() {
+  const langs = getSelectedLangs();
+  if (langs.length === 0) { alert('請至少選擇一個目標語言'); return; }
+  const pharma = document.getElementById('pharmacyName').value.trim() || '藥局';
+  const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  let html = '';
+  // One page per language
+  for (const lang of langs) {
+    html += `<div class="output-page" style="margin-bottom:20px">
+      <div class="output-header">
+        <div class="pharmacy-name">${escapeHtml(pharma)}</div>
+        <div class="lang-label">${LANG_NAMES[lang]}</div>
+        <div class="date">${today}</div>
+      </div>`;
+
+    for (const r of RX_LIST) {
+      const d = r.drug;
+      const freqText = FREQ[r.freq] ? FREQ[r.freq][lang] || FREQ[r.freq].en : r.freq;
+      const timingText = TIMING[r.timing] ? TIMING[r.timing][lang] || TIMING[r.timing].en : '';
+      const timingIcon = TIMING[r.timing] ? TIMING[r.timing].icon : '';
+      const formText = FORM[r.form] ? FORM[r.form][lang] || FORM[r.form].en : '';
+      const freqIcons = FREQ_ICONS[r.freq] || '';
+
+      // Dose line: "Take 1 tablet(s), three times daily, after meals"
+      const doseLine = lang === 'zh'
+        ? `每次 ${r.dose} ${FORM[r.form]?.zh || '顆'}，${FREQ[r.freq]?.zh || ''}，${TIMING[r.timing]?.zh || ''}`
+        : `${r.dose} ${formText}, ${freqText}, ${timingText}`;
+
+      html += `<div class="drug-block">
+        <div class="drug-block-name">${escapeHtml(d.brandNameZh || d.brandName)}</div>
+        <div class="drug-block-name-en">${escapeHtml(d.brandName)} (${escapeHtml(d.genericName.split(/\s+\d/)[0])})</div>
+        <div class="drug-instruction">
+          <span class="icons">${timingIcon}</span>${escapeHtml(doseLine)}
+        </div>
+        <div class="drug-timing-icons">${freqIcons}</div>
+        ${r.days ? `<div style="font-size:15px;color:#6b7280">${lang === 'zh' ? '共 ' + r.days + ' 天' : lang === 'ja' ? r.days + '日間' : r.days + (lang === 'id' ? ' hari' : lang === 'vi' ? ' ngày' : lang === 'th' ? ' วัน' : ' day(s)')}</div>` : ''}
+        ${r.warnings.length ? `<div class="drug-warnings">${r.warnings.map(w => `<p>${WARNINGS[w]?.icon || ''} ${WARNINGS[w]?.[lang] || WARNINGS[w]?.en || ''}</p>`).join('')}</div>` : ''}
+      </div>`;
+    }
+
+    html += `<div class="output-footer">${escapeHtml(pharma)} · ${today}</div></div>`;
+  }
+
+  // Always add Chinese version at the end
+  if (!langs.includes('zh')) {
+    html += `<div class="output-page">
+      <div class="output-header">
+        <div class="pharmacy-name">${escapeHtml(pharma)}</div>
+        <div class="lang-label">中文</div>
+        <div class="date">${today}</div>
+      </div>`;
+    for (const r of RX_LIST) {
+      const d = r.drug;
+      html += `<div class="drug-block">
+        <div class="drug-block-name">${escapeHtml(d.brandNameZh || d.brandName)}</div>
+        <div class="drug-block-name-en">${escapeHtml(d.brandName)}</div>
+        <div class="drug-instruction">
+          <span class="icons">${TIMING[r.timing]?.icon || ''}</span>每次 ${r.dose} ${FORM[r.form]?.zh || '顆'}，${FREQ[r.freq]?.zh || ''}，${TIMING[r.timing]?.zh || ''}
+        </div>
+        <div class="drug-timing-icons">${FREQ_ICONS[r.freq] || ''}</div>
+        ${r.days ? `<div style="font-size:15px;color:#6b7280">共 ${r.days} 天</div>` : ''}
+        ${r.warnings.length ? `<div class="drug-warnings">${r.warnings.map(w => `<p>${WARNINGS[w]?.icon || ''} ${WARNINGS[w]?.zh || ''}</p>`).join('')}</div>` : ''}
+      </div>`;
+    }
+    html += `<div class="output-footer">${escapeHtml(pharma)} · ${today}</div></div>`;
+  }
+
+  document.getElementById('outputContent').innerHTML = html;
+  showOutput();
+}
+
+function showOutput() {
+  document.getElementById('inputView').style.display = 'none';
+  document.getElementById('outputView').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function showInput() {
+  document.getElementById('inputView').style.display = 'block';
+  document.getElementById('outputView').style.display = 'none';
+  window.scrollTo(0, 0);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

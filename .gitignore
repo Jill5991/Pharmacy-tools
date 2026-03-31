@@ -1,0 +1,5 @@
+.DS_Store
+.claude/
+*.csv
+module-b/config.js
+module-b/config.json
